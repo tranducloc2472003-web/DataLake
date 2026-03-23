@@ -1,0 +1,88 @@
+services:
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle
+    hostname: oracle
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: admin
+      APP_USER: hiveuser
+      APP_USER_PASSWORD: hivepass
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    networks:
+      - trino-network
+  hive-metastore:
+    hostname: hive-metastore
+    image: 'bitsondatadev/hive-metastore:latest'
+    ports:
+      - '9083:9083'
+    volumes:
+      - ./conf/metastore-site.xml:/opt/apache-hive-metastore-3.0.0-bin/conf/metastore-site.xml:ro
+    environment:
+      METASTORE_DB_HOSTNAME: mariadb
+    depends_on:
+      - mariadb
+    networks:
+      - trino-network
+
+  trino:
+    image: trinodb/trino:421
+    container_name: trino
+    hostname: trino
+    ports:
+      - "8086:8080"
+    volumes:
+      - ./etc:/etc/trino:ro
+    depends_on:
+      - hive-metastore
+      - oracle
+    networks:
+      - trino-network
+  minio:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    container_name: minio
+    hostname: minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio_access_key
+      MINIO_ROOT_PASSWORD: minio_secret_key
+    volumes:
+      - ./data:/data
+    networks:
+      - trino-network
+  webhook:
+    build: ./webhook
+    container_name: minio-webhook
+    hostname: webhook
+    ports:
+      - "9100:9100"
+    volumes:
+      - ./etl/nav_etl.py:/etc/nav_etl.py:ro
+    depends_on:
+      - minio
+      - oracle
+    networks:
+      - trino-network
+  mariadb:
+    hostname: mariadb
+    image: mariadb:10.5.8
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+      MYSQL_DATABASE: metastore_db
+    networks:
+      - trino-network
+networks:
+  trino-network:
+    driver: bridge
+volumes:
+  oracle_data:
+  mariadb_data:

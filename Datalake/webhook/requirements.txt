@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+pandas
+s3fs
+trino
+pyarrow
