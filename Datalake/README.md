@@ -1,93 +1,117 @@
-# trino-minio-docker
+# 🏗️ End-to-End Data Lake Pipeline (MinIO, Trino, Iceberg)
 
-Minimal example to run Trino with Minio and the Hive standalone metastore on Docker. The data in this tutorial was converted into an [Apache Parquet](https://parquet.apache.org/) file from the famous [Iris data set](https://archive.ics.uci.edu/ml/datasets/iris).
+This project demonstrates a complete **data engineering pipeline**, from data ingestion to analytics, using a modern data lake architecture.
 
-## Installation and Setup
+It simulates real-world scenarios in financial data processing, integrating multiple systems and tools.
 
-Install [s3cmd](https://s3tools.org/s3cmd) with:
+---
+
+## 📌 Architecture Overview
+
+* **MinIO** → S3-compatible object storage (Data Lake)
+* **Apache Iceberg** → Table format for large-scale data management
+* **Trino** → Distributed SQL query engine
+* **Hive Metastore + MariaDB** → Metadata storage & management
+* **Oracle** → Source database (transactional data)
+* **Python ETL** → Data ingestion & transformation
+* **Webhook** → Trigger pipeline execution
+
+---
+
+## ⚙️ Tech Stack
+
+* Data Lake: MinIO
+* Table Format: Apache Iceberg
+* Query Engine: Trino
+* Metadata: Hive Metastore + MariaDB
+* Source DB: Oracle
+* ETL: Python (pandas, requests, etc.)
+* Orchestration: Webhook-triggered pipelines
+* Containerization: Docker / Docker Compose
+
+---
+
+## 🔄 Data Pipeline Flow
+
+1. Extract data from **Oracle / external APIs**
+2. Trigger pipeline via **Webhook**
+3. Run **Python ETL** to:
+
+   * Collect data
+   * Clean & transform
+4. Load data into **MinIO (Data Lake)** in Parquet/Iceberg format
+5. Register tables in **Hive Metastore**
+6. Query data using **Trino**
+
+---
+
+## 🧠 Key Features
+
+* End-to-end **data ingestion → storage → query pipeline**
+* Implementation of **data lake architecture (raw → processed layers)**
+* Use of **Apache Iceberg** for scalable table management
+* Integration with **multiple data sources (Oracle, APIs)**
+* Automated pipeline triggering via webhook
+* Query optimization using columnar storage (Parquet)
+
+---
+
+## 🚀 Getting Started
+
+### 1. Start all services
 
 ```bash
-sudo apt update
-sudo apt install -y \
-    s3cmd \
-    openjdk-11-jre-headless  # Needed for trino-cli
+docker-compose up -d
 ```
 
-Pull and run all services with:
+---
+
+### 2. Upload data to MinIO
 
 ```bash
-docker-compose up
+s3cmd --config minio.s3cfg mb s3://data-lake
+s3cmd --config minio.s3cfg put data/sample.parquet s3://data-lake
 ```
 
-Configure `s3cmd` with (or use the `minio.s3cfg` configuration):
+---
 
-```bash
-s3cmd --config minio.s3cfg --configure
-```
-
-Use the following configuration for the `s3cmd` configuration when prompted:
-
-```
-Access Key: minio_access_key
-Secret Key: minio_secret_key
-Default Region [US]:
-S3 Endpoint [s3.amazonaws.com]: localhost:9000
-DNS-style bucket+hostname:port template for accessing a bucket [%(bucket)s.s3.amazonaws.com]: localhost:9000
-Encryption password:
-Path to GPG program [/usr/bin/gpg]:
-Use HTTPS protocol [Yes]: no
-```
-
-To create a bucket and upload data to minio, type:
-
-```bash
-s3cmd --config minio.s3cfg mb s3://iris
-s3cmd --config minio.s3cfg put data/iris.parq s3://iris
-```
-To list all object in all buckets, type:
-
-```bash
-s3cmd --config minio.s3cfg la
-```
-
-## Access Trino with CLI and Prepare Table
-
-Download trino cli with:
-
-```bash
-wget https://repo1.maven.org/maven2/io/trino/trino-cli/352/trino-cli-351-executable.jar \
-  -O trino
-chmod +x trino  # Make it executable
-```
-
-Create schema and create table with:
+### 3. Create schema & table in Trino
 
 ```bash
 ./trino --execute "
-CREATE SCHEMA IF NOT EXISTS minio.iris
-WITH (location = 's3a://iris/');
+CREATE SCHEMA IF NOT EXISTS lake.raw
+WITH (location = 's3a://data-lake/raw/');
 
-CREATE TABLE IF NOT EXISTS minio.iris.iris_parquet (
-  sepal_length DOUBLE,
-  sepal_width  DOUBLE,
-  petal_length DOUBLE,
-  petal_width  DOUBLE,
-  class        VARCHAR
+CREATE TABLE lake.raw.sample (
+  id INT,
+  value DOUBLE
 )
 WITH (
-  external_location = 's3a://iris/',
   format = 'PARQUET'
 );"
 ```
 
-Query the newly created table with:
+---
+
+### 4. Query data
 
 ```bash
-./trino --execute "
-SHOW TABLES IN minio.iris;
-SELECT * FROM minio.iris.iris_parquet LIMIT 5;"
+./trino --execute "SELECT * FROM lake.raw.sample LIMIT 10;"
 ```
 
-# License
+---
 
-This project is licensed under the MIT license. See the [LICENSE](LICENSE) for details.
+## 📊 Use Case
+
+This project can be applied to:
+
+* Financial data processing (stock, trading data)
+* Data warehouse offloading
+* Analytics & reporting pipelines
+* Building a modern data lake architecture
+
+---
+
+## 📎 Notes
+
+This is a learning project designed to demonstrate core **data engineering concepts**, including ingestion, storage, transformation, and querying in a distributed environment.
